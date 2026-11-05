@@ -14,11 +14,18 @@ const app = express();
 app.set('trust proxy', 1);
 
 // CORS: CORS_ORIGIN puede ser una lista separada por comas. Si no se define, se permite cualquier origen.
+// Se normaliza cada valor: sin comillas, sin barra final, en minúsculas y con https:// si falta el esquema.
 const origins = (process.env.CORS_ORIGIN || '')
   .split(',')
-  .map((o) => o.trim().replace(/\/$/, ''))
-  .filter(Boolean);
-app.use(cors({ origin: origins.length ? origins : true }));
+  .map((o) => o.trim().replace(/^["']|["']$/g, '').replace(/\/+$/, '').toLowerCase())
+  .filter((o) => o && o !== '*')
+  .map((o) => (/^https?:\/\//.test(o) ? o : `https://${o}`));
+console.log(`CORS: ${origins.length ? `orígenes permitidos -> ${origins.join(', ')}` : 'cualquier origen permitido'}`);
+app.use(
+  cors({
+    origin: origins.length ? (origin, cb) => cb(null, !origin || origins.includes(origin.toLowerCase())) : true,
+  })
+);
 app.use(helmet());
 app.use(express.json({ limit: '1mb' }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'tiny' : 'dev'));
