@@ -1,0 +1,27 @@
+{
+  "name": "nexo-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API de Nexo - gestión de ventas, servicios e inventario para salones de belleza",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "prisma generate",
+    "start": "prisma migrate deploy && node src/index.js",
+    "dev": "node --watch src/index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev"
+  },
+  "dependencies": {
+    "@prisma/client": "5.22.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "prisma": "5.22.0"
+  }
+}

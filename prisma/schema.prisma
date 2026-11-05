@@ -1,0 +1,220 @@
+// Nexo - Esquema de base de datos (PostgreSQL)
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  EMPLOYEE
+  SELLER
+}
+
+enum OrderStatus {
+  PENDING
+  AT_HQ
+  COMPLETED
+  CANCELLED
+}
+
+enum ItemType {
+  PRODUCT
+  SERVICE
+  CUSTOM
+}
+
+model Business {
+  id        String     @id @default(cuid())
+  name      String
+  phone     String?
+  address   String?
+  currency  String     @default("USD")
+  logoUrl   String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  users     User[]
+  products  Product[]
+  services  Service[]
+  sales     Sale[]
+  orders    Order[]
+  auditLogs AuditLog[]
+}
+
+model User {
+  id           String     @id @default(cuid())
+  businessId   String
+  business     Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name         String
+  email        String     @unique
+  passwordHash String
+  role         Role       @default(EMPLOYEE)
+  phone        String?
+  avatarUrl    String?
+  avatarColor  String     @default("#F48FB1")
+  bio          String?
+  active       Boolean    @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  sales        Sale[]
+  orders       Order[]
+  auditLogs    AuditLog[]
+
+  @@index([businessId])
+}
+
+model Product {
+  id          String           @id @default(cuid())
+  businessId  String
+  business    Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  category    String?
+  imageUrl    String?
+  active      Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  variants    ProductVariant[]
+
+  @@index([businessId])
+}
+
+model ProductVariant {
+  id         String      @id @default(cuid())
+  productId  String
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name       String
+  sku        String?
+  price      Decimal     @db.Decimal(12, 2)
+  cost       Decimal     @default(0) @db.Decimal(12, 2)
+  stock      Int         @default(0)
+  active     Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  saleItems  SaleItem[]
+  orderItems OrderItem[]
+
+  @@index([productId])
+}
+
+model Service {
+  id          String      @id @default(cuid())
+  businessId  String
+  business    Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  category    String?
+  price       Decimal     @db.Decimal(12, 2)
+  cost        Decimal     @default(0) @db.Decimal(12, 2)
+  durationMin Int         @default(60)
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  saleItems   SaleItem[]
+  orderItems  OrderItem[]
+
+  @@index([businessId])
+}
+
+model Sale {
+  id            String     @id @default(cuid())
+  businessId    String
+  business      Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  userId        String?
+  user          User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  orderId       String?    @unique
+  order         Order?     @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  clientName    String?
+  paymentMethod String     @default("EFECTIVO")
+  notes         String?
+  total         Decimal    @db.Decimal(12, 2)
+  cost          Decimal    @db.Decimal(12, 2)
+  profit        Decimal    @db.Decimal(12, 2)
+  createdAt     DateTime   @default(now())
+  items         SaleItem[]
+
+  @@index([businessId, createdAt])
+}
+
+model SaleItem {
+  id        String          @id @default(cuid())
+  saleId    String
+  sale      Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  type      ItemType
+  variantId String?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  serviceId String?
+  service   Service?        @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  name      String
+  quantity  Int
+  unitPrice Decimal         @db.Decimal(12, 2)
+  unitCost  Decimal         @db.Decimal(12, 2)
+  subtotal  Decimal         @db.Decimal(12, 2)
+
+  @@index([saleId])
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  businessId      String
+  business        Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  sellerId        String
+  seller          User        @relation(fields: [sellerId], references: [id])
+  code            String      @unique
+  customerName    String
+  customerPhone   String?
+  customerAddress String?
+  notes           String?
+  status          OrderStatus @default(PENDING)
+  total           Decimal     @db.Decimal(12, 2)
+  completedAt     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  items           OrderItem[]
+  sale            Sale?
+
+  @@index([businessId, status])
+  @@index([sellerId])
+}
+
+model OrderItem {
+  id        String          @id @default(cuid())
+  orderId   String
+  order     Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  type      ItemType
+  variantId String?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  serviceId String?
+  service   Service?        @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  name      String
+  quantity  Int
+  unitPrice Decimal         @db.Decimal(12, 2)
+  subtotal  Decimal         @db.Decimal(12, 2)
+
+  @@index([orderId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userName   String
+  userRole   String?
+  action     String
+  entity     String
+  entityId   String?
+  summary    String
+  changes    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([businessId, createdAt])
+  @@index([entity, entityId])
+}
